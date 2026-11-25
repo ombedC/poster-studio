@@ -1,0 +1,55 @@
+# ---------------------------------------------------------------------------
+# Local layer-decomposition stack (Plan B: raster poster -> LayerD + PaddleOCR
+# -> editable SVG). Installed into the isolated .venv-decompose ONLY:
+#
+#   powershell -ExecutionPolicy Bypass -File scripts\install_decompose.ps1
+#
+# Hard constraints (keep them):
+#   1) CPU only. torch must come from download.pytorch.org/whl/cpu and
+#      torch.version.cuda must be None. Never install paddlepaddle-gpu / CUDA torch.
+#   2) Do NOT install LayerD[ocr] or GOT-OCR2 (they need an NVIDIA GPU).
+#   3) numpy must satisfy layerd (>=2.0) and paddlex (<2.4): pinned to 2.3.x.
+#   4) Only one cv2 provider: paddlex pins opencv-contrib-python==4.10.0.84, so
+#      LayerD is installed with --no-deps (see installer) to avoid pulling
+#      opencv-python-headless and having two distributions overwrite cv2/.
+#   5) LayerD is pinned by commit in scripts/install_decompose.ps1:
+#      21aef937a0371614adb4d961f52d02409cb8ecc7 (2026-01-19, official ICCV 2025
+#      implementation). Keep both places in sync.
+#
+# NOTE: pip on Chinese Windows decodes this file with cp936, so keep it ASCII
+# only (Chinese docs live in docs/decompose-local.md).
+# ---------------------------------------------------------------------------
+
+# Extra index that serves the CPU torch wheels
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Base numeric / image stack
+numpy==2.3.5
+pillow>=10.4
+opencv-contrib-python==4.10.0.84
+
+# CPU-only PyTorch (installer asserts torch.version.cuda is None afterwards)
+torch==2.15.0+cpu
+torchvision==0.29.1+cpu
+
+# Runtime dependencies of LayerD (installed separately with --no-deps).
+# Versions mirror its pyproject.toml. Keep huggingface-hub < 1 because
+# transformers 4.x pins that range (hub 2.x makes the resolver backtrack a lot).
+scikit-image>=0.25,<1
+tqdm>=4.62
+huggingface-hub>=0.25,<1
+transformers>=4.37.2,<5
+einops>=0.8
+timm>=1.0.12
+kornia>=0.5
+fsspec>=2021.10
+psd-tools>=1.9
+pydantic>=2.5
+
+# CPU-only PaddleOCR (stable Chinese recognition).
+# paddleocr 3.7.0 resolves paddlex 3.7.2 + paddlepaddle 3.2.0; verified working.
+paddlepaddle==3.2.0
+paddleocr==3.7.0
+
+# Optional fallback OCR if Paddle is too heavy on this CPU:
+# rapidocr-onnxruntime>=1.4,<2

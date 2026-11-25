@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>教培海报自动化工作台 · MVP</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2334d399'/%3E%3Ccircle cx='32' cy='24' r='10' fill='%23064e3b'/%3E%3Cpath d='M12 58c0-11 9-20 20-20s20 9 20 20z' fill='%23064e3b'/%3E%3C/svg%3E" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Noto Sans SC"', 'system-ui', 'Segoe UI', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .checker {
+      background-color: #0b1220;
+      background-image:
+        linear-gradient(45deg, #16233a 25%, transparent 25%),
+        linear-gradient(-45deg, #16233a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #16233a 75%),
+        linear-gradient(-45deg, transparent 75%, #16233a 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+    }
+    input[type="range"] { accent-color: #34d399; }
+    .fade-enter { animation: fade 0.25s ease-out; }
+    @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 font-sans text-slate-100 antialiased" x-data="workbench()">
+  <div class="pointer-events-none fixed inset-0 bg-[radial-gradient(60rem_40rem_at_70%_-10%,rgba(52,211,153,0.10),transparent),radial-gradient(50rem_30rem_at_0%_100%,rgba(99,102,241,0.10),transparent)]"></div>
+
+  <header class="relative border-b border-white/5 bg-slate-950/60 backdrop-blur">
+    <div class="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-4">
+      <div class="flex items-center gap-3">
+        <div class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 text-lg font-black text-slate-950 shadow-lg shadow-emerald-500/20">海</div>
+        <div>
+          <h1 class="text-[15px] font-semibold tracking-wide">教培海报自动化工作台</h1>
+          <p class="text-xs text-slate-400">人像抠图 · 智能头肩裁切 · 一键出海报素材</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-xs">
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-emerald-300">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>照片不出本机
+        </span>
+        <a href="/docs" target="_blank" class="rounded-full border border-white/10 px-2.5 py-1 text-slate-300 transition hover:border-white/25 hover:text-white">API 文档</a>
+        <a href="/static/poster.html" class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-emerald-300 transition hover:border-emerald-400/40">海报模板</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative mx-auto grid max-w-[1500px] gap-5 px-5 py-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+    <!-- ============ 左侧控制台 ============ -->
+    <aside class="space-y-4">
+      <!-- 1. 版式 -->
+      <section class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-medium text-slate-200"><span class="mr-1.5 text-emerald-400">01</span>人像版式</h2>
+          <span class="text-[11px] text-slate-500" x-text="modeNote"></span>
+        </div>
+        <div class="mt-3 grid grid-cols-3 gap-2">
+          <template x-for="item in modes" :key="item.key">
+            <button type="button" @click="setMode(item.key)"
+                    class="rounded-xl border px-2 py-2.5 text-center transition"
+                    :class="mode === item.key ? 'border-emerald-400/60 bg-emerald-400/10 text-emerald-200' : 'border-white/10 bg-slate-900/40 text-slate-300 hover:border-white/25'">
+              <span class="block text-xs font-medium" x-text="item.label"></span>
+              <span class="mt-0.5 block text-[10px] opacity-60" x-text="item.hint"></span>
+            </button>
+          </template>
+        </div>
+      </section>
+
+      <!-- 2. 上传 -->
+      <section class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-medium text-slate-200"><span class="mr-1.5 text-emerald-400">02</span>老师照片</h2>
+          <span class="text-[11px] text-slate-500" x-show="sourceSize.w" x-cloak x-text="sourceSize.w + ' × ' + sourceSize.h + ' px'"></span>
+        </div>
+
+        <label class="mt-3 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-slate-900/40 px-4 py-6 text-center transition hover:border-emerald-400/50 hover:bg-emerald-400/[0.04]"
+               @dragover.prevent="dragging = true" @dragleave.prevent="dragging = false"
+               @drop.prevent="dragging = false; onDrop($event)"
+               :class="dragging ? 'border-emerald-400/70 bg-emerald-400/[0.06]' : ''">
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/bmp" class="hidden" @change="onPick($event)" />
+          <template x-if="!file">
+            <div class="space-y-1">
+              <div class="mx-auto grid h-11 w-11 place-items-center rounded-full bg-white/5 text-xl">＋</div>
+              <p class="text-sm text-slate-200">拖入照片，或点击选择</p>
+              <p class="text-[11px] text-slate-500">JPG / PNG / WebP，建议正脸、光线均匀</p>
+            </div>
+          </template>
+          <template x-if="file">
+            <div class="flex w-full items-center gap-3 text-left">
+              <img :src="sourceUrl" class="h-14 w-14 rounded-lg object-cover ring-1 ring-white/10" alt="预览" />
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm text-slate-100" x-text="file.name"></p>
+                <p class="text-[11px] text-slate-500" x-text="(file.size / 1024).toFixed(0) + ' KB · 点击更换'"></p>
+              </div>
+            </div>
+          </template>
+        </label>
+      </section>
+
+      <!-- 3. 目标尺寸 -->
+      <section class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-medium text-slate-200"><span class="mr-1.5 text-emerald-400">03</span>海报尺寸</h2>
+          <span class="text-[11px] text-slate-500" x-text="target.width + ' × ' + target.height"></span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <template x-for="preset in presets" :key="preset.key">
+            <button type="button" @click="presetKey = preset.key"
+                    :disabled="mode === 'framed_circle' && preset.key !== 'square'"
+                    class="rounded-xl border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-30"
+                    :class="presetKey === preset.key ? 'border-emerald-400/60 bg-emerald-400/10 text-emerald-200' : 'border-white/10 bg-slate-900/40 text-slate-300 hover:border-white/25'">
+              <span class="block text-xs font-medium" x-text="preset.label"></span>
+              <span class="block text-[10px] opacity-60" x-text="preset.hint"></span>
+            </button>
+          </template>
+        </div>
+        <p x-show="mode === 'framed_circle'" x-cloak class="mt-2 text-[11px] text-slate-500">圆框头像固定按正方形输出。</p>
+        <div class="mt-2 grid grid-cols-2 gap-2" x-show="presetKey === 'custom' && mode !== 'framed_circle'" x-cloak>
+          <label class="text-[11px] text-slate-400">宽（px）
+            <input type="number" min="64" max="4096" x-model.number="customW" class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-emerald-400/60" />
+          </label>
+          <label class="text-[11px] text-slate-400">高（px）
+            <input type="number" min="64" max="4096" x-model.number="customH" class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-emerald-400/60" />
+          </label>
+        </div>
+      </section>
+
+      <!-- 4. 构图 -->
+      <section class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-medium text-slate-200"><span class="mr-1.5 text-emerald-400">04</span>人像构图</h2>
+          <button type="button" class="text-[11px] text-slate-500 transition hover:text-emerald-300" @click="resetRatios()">恢复默认</button>
+        </div>
+
+        <div x-show="mode === 'full_body'" x-cloak class="mt-3 rounded-lg bg-slate-900/50 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+          全身立绘不使用人脸比例，会按抠图后的 <span class="text-slate-300">alpha 外轮廓</span>自动裁切（含 3% 安全边距），人物底部贴近画布。
+        </div>
+
+        <div class="mt-3 space-y-4" x-show="mode !== 'full_body'">
+          <div>
+            <div class="flex items-baseline justify-between text-[11px]">
+              <span class="text-slate-400">头顶留白 <span class="text-slate-600">top_ratio</span></span>
+              <span class="font-mono text-emerald-300" x-text="topRatio.toFixed(2) + ' × h'"></span>
+            </div>
+            <input type="range" min="0" max="1" step="0.05" x-model.number="topRatio" class="mt-1.5 w-full" />
+          </div>
+          <div>
+            <div class="flex items-baseline justify-between text-[11px]">
+              <span class="text-slate-400">肩线位置 <span class="text-slate-600">shoulder_ratio</span></span>
+              <span class="font-mono text-emerald-300" x-text="shoulderRatio.toFixed(2) + ' × h'"></span>
+            </div>
+            <input type="range" min="0" max="1.5" step="0.05" x-model.number="shoulderRatio" class="mt-1.5 w-full" />
+          </div>
+
+          <div x-show="mode === 'framed_circle'" x-cloak class="space-y-3 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-3">
+            <div>
+              <div class="flex items-baseline justify-between text-[11px]">
+                <span class="text-slate-400">圆框描边 <span class="text-slate-600">border_width</span></span>
+                <span class="font-mono text-emerald-300" x-text="borderWidth + ' px'"></span>
+              </div>
+              <input type="range" min="0" max="40" step="1" x-model.number="borderWidth" class="mt-1.5 w-full" />
+            </div>
+            <label class="flex items-center justify-between text-[11px] text-slate-400">
+              <span>描边颜色 <span class="text-slate-600">border_color</span></span>
+              <span class="flex items-center gap-2">
+                <span class="font-mono text-slate-500" x-text="borderColor.toUpperCase()"></span>
+                <input type="color" x-model="borderColor" class="h-7 w-9 cursor-pointer rounded border border-white/10 bg-transparent" />
+              </span>
+            </label>
+          </div>
+
+          <p class="rounded-lg bg-slate-900/50 px-3 py-2 text-[11px] leading-relaxed text-slate-500"
+             x-text="mode === 'framed_circle'
+               ? '圆框头像：正方形裁切后套抗锯齿圆形蒙版，四角透明，描边画在圆周内侧。'
+               : '裁切窗口高度 = h × (1 + 头顶 + 肩线)，水平以人脸中心对齐。全身照会自动裁掉腰部以下。'"></p>
+        </div>
+      </section>
+
+      <!-- 5. 抠图 -->
+      <section class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <label class="flex cursor-pointer items-center justify-between" :class="mode === 'full_body' ? 'cursor-not-allowed' : 'cursor-pointer'">
+          <span>
+            <span class="block text-sm font-medium text-slate-200"><span class="mr-1.5 text-emerald-400">05</span>本地去背景</span>
+            <span class="mt-0.5 block text-[11px] text-slate-500"
+                  x-text="mode === 'full_body' ? '全身立绘强制抠图，输出透明底 PNG' : 'rembg · 输出透明底 PNG，首次运行会下载模型'"></span>
+          </span>
+          <span class="relative inline-flex">
+            <input type="checkbox" x-model="removeBg" :disabled="mode === 'full_body'" class="peer sr-only disabled:cursor-not-allowed" />
+            <span class="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500 peer-disabled:opacity-50"></span>
+            <span class="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5 peer-disabled:opacity-60"></span>
+          </span>
+        </label>
+      </section>
+
+      <button type="button" @click="run()" :disabled="loading"
+              class="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60">
+        <template x-if="!loading">
+          <span class="flex items-center gap-2">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
+            生成海报素材
+          </span>
+        </template>
+        <template x-if="loading">
+          <span class="flex items-center gap-2">
+            <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+            本地处理中…
+          </span>
+        </template>
+      </button>
+      <p class="px-1 text-[11px] leading-relaxed text-slate-600">全程本机 CPU 计算；照片只写入本机 data/ 目录，不上传任何服务器。</p>
+    </aside>
+
+    <!-- ============ 右侧预览 ============ -->
+    <section class="flex min-h-[600px] flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-1 rounded-full border border-white/10 bg-slate-900/60 p-1 text-xs">
+          <button type="button" @click="tab = 'source'" class="rounded-full px-3 py-1.5 transition" :class="tab === 'source' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-200'">原图</button>
+          <button type="button" @click="tab = 'cutout'" :disabled="!cutoutUrl" class="rounded-full px-3 py-1.5 transition disabled:opacity-30" :class="tab === 'cutout' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-200'">透明底</button>
+          <button type="button" @click="tab = 'result'" :disabled="!outputUrl" class="rounded-full px-3 py-1.5 transition disabled:opacity-30" :class="tab === 'result' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-200'">成品</button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="hidden rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-slate-400 sm:inline" x-show="result" x-cloak
+                x-text="result ? (result.crop.width + '×' + result.crop.height + ' → ' + result.output.width + '×' + result.output.height) : ''"></span>
+          <a x-show="outputUrl" x-cloak :href="outputUrl" :download="result ? ('poster-' + result.output.width + 'x' + result.output.height + '.png') : 'poster.png'"
+             class="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-900 transition hover:bg-emerald-50">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+            下载 PNG
+          </a>
+        </div>
+      </div>
+
+      <!-- 错误提示 -->
+      <div x-show="error" x-cloak class="mt-3 flex items-start gap-2 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+        <span class="mt-0.5">⚠</span><span x-text="error"></span>
+      </div>
+
+      <!-- 画布 -->
+      <div class="checker relative mt-3 flex flex-1 items-center justify-center overflow-hidden rounded-xl border border-white/10 p-4">
+        <template x-if="!sourceUrl">
+          <div class="max-w-sm select-none text-center">
+            <div class="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl border border-white/10 bg-white/5 text-slate-400">
+              <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="m4 17 4.5-4.5a2 2 0 0 1 2.8 0L16 17" />
+              </svg>
+            </div>
+            <p class="text-sm text-slate-400">上传老师照片后，这里会依次显示</p>
+            <p class="mt-1 text-xs text-slate-600">原图 → 透明底人像 → 海报尺寸成品</p>
+          </div>
+        </template>
+
+        <template x-if="sourceUrl && tab === 'source'">
+          <div class="relative inline-block max-h-full">
+            <img :src="sourceUrl" alt="原图" class="max-h-[58vh] max-w-full rounded-lg shadow-2xl shadow-black/40" />
+            <div x-show="result && result.face" x-cloak class="pointer-events-none absolute border-2 border-emerald-400"
+                 :style="faceStyle()">
+              <span class="absolute -top-5 left-0 rounded bg-emerald-400 px-1.5 py-0.5 text-[10px] font-semibold text-slate-950">人脸</span>
+            </div>
+            <div x-show="result && result.crop" x-cloak class="pointer-events-none absolute border border-dashed border-amber-300"
+                 :style="cropStyle()">
+              <span class="absolute -top-5 right-0 rounded bg-amber-300 px-1.5 py-0.5 text-[10px] font-semibold text-slate-950">裁切</span>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="tab === 'cutout' && cutoutUrl">
+          <img :src="cutoutUrl" alt="透明底" class="max-h-[58vh] max-w-full rounded-lg drop-shadow-2xl" />
+        </template>
+
+        <template x-if="tab === 'result' && outputUrl">
+          <img :src="outputUrl" alt="成品" class="max-h-[58vh] max-w-full rounded-lg shadow-2xl shadow-black/50 fade-enter" />
+        </template>
+
+        <div x-show="loading" x-cloak class="absolute inset-0 grid place-items-center bg-slate-950/60 backdrop-blur-sm">
+          <div class="flex flex-col items-center gap-3 text-sm text-slate-300">
+            <svg class="h-8 w-8 animate-spin text-emerald-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+            <p x-text="mode === 'full_body' ? 'rembg 正在抠全身并计算外轮廓…' : (mode === 'framed_circle' ? '正在裁切并生成圆形蒙版…' : (removeBg ? 'rembg 正在抠图并裁切…' : '正在检测人脸并裁切…'))"></p>
+            <p class="text-xs text-slate-500">首次运行需下载约 170 MB 模型，请耐心等待</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 元信息 -->
+      <div class="mt-3 grid gap-2 sm:grid-cols-2" x-show="result" x-cloak>
+        <div class="rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2">
+          <p class="text-[10px] uppercase tracking-wider text-slate-500">检测</p>
+          <p class="mt-0.5 text-xs text-slate-300">
+            <span x-text="result ? (result.mode === 'full_body' ? 'alpha 外轮廓 · 全身完整裁切' : (result.face ? (result.face.backend + ' · 置信度 ' + (result.face.confidence != null ? result.face.confidence.toFixed(2) : '—')) : '未检测到人脸（顶部居中）')) : ''"></span>
+          </p>
+        </div>
+        <div class="rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2">
+          <p class="text-[10px] uppercase tracking-wider text-slate-500">耗时</p>
+          <p class="mt-0.5 text-xs text-slate-300" x-text="result ? Object.entries(result.timings).map(([k, v]) => k.replace('_ms', '') + ' ' + Math.round(v) + 'ms').join(' · ') : ''"></p>
+        </div>
+      </div>
+
+      <div x-show="result && result.warnings.length" x-cloak class="mt-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2">
+        <p class="text-[10px] uppercase tracking-wider text-amber-300/80">提示</p>
+        <ul class="mt-1 space-y-0.5">
+          <template x-for="(warning, index) in (result ? result.warnings : [])" :key="index">
+            <li class="text-[11px] leading-relaxed text-amber-200/90" x-text="'· ' + warning"></li>
+          </template>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function workbench() {
+      return {
+        file: null,
+        sourceUrl: '',
+        cutoutUrl: '',
+        outputUrl: '',
+        sourceSize: { w: 0, h: 0 },
+        loading: false,
+        dragging: false,
+        error: '',
+        result: null,
+        tab: 'source',
+        mode: 'head_shoulder',
+        borderWidth: 0,
+        borderColor: '#FFFFFF',
+        modes: [
+          { key: 'head_shoulder', label: '头肩', hint: '半身卡片' },
+          { key: 'framed_circle', label: '圆框', hint: '圆形头像' },
+          { key: 'full_body', label: '全身', hint: '完整立绘' },
+        ],
+        presetKey: 'xhs34',
+        customW: 1080,
+        customH: 1440,
+        topRatio: 0.45,
+        shoulderRatio: 0.75,
+        removeBg: true,
+        presets: [
+          { key: 'xhs34', label: '小红书 3:4', hint: '1080 × 1440', width: 1080, height: 1440 },
+          { key: 'xhs45', label: '笔记 4:5', hint: '1080 × 1350', width: 1080, height: 1350 },
+          { key: 'square', label: '方形 1:1', hint: '1080 × 1080', width: 1080, height: 1080 },
+          { key: 'story', label: '竖屏 9:16', hint: '1080 × 1920', width: 1080, height: 1920 },
+          { key: 'a4', label: '打印 A4', hint: '1240 × 1754', width: 1240, height: 1754 },
+          { key: 'custom', label: '自定义', hint: '手动输入', width: 1080, height: 1440 },
+        ],
+
+        get preset() {
+          return this.presets.find((p) => p.key === this.presetKey) || this.presets[0];
+        },
+        get modeNote() {
+          const labels = { head_shoulder: '半身卡片', framed_circle: '圆形头像', full_body: '完整立绘' };
+          return labels[this.mode] || '';
+        },
+        get target() {
+          if (this.mode === 'framed_circle') {
+            return { width: 1080, height: 1080 };
+          }
+          if (this.presetKey === 'custom') {
+            return {
+              width: Math.min(4096, Math.max(64, Number(this.customW) || 1080)),
+              height: Math.min(4096, Math.max(64, Number(this.customH) || 1440)),
+            };
+          }
+          return { width: this.preset.width, height: this.preset.height };
+        },
+
+        setMode(next) {
+          this.mode = next;
+          if (next === 'framed_circle') {
+            this.presetKey = 'square';
+            this.topRatio = 0.5;
+            this.shoulderRatio = 0.85;
+            this.removeBg = false;
+          } else if (next === 'head_shoulder') {
+            this.topRatio = 0.45;
+            this.shoulderRatio = 0.75;
+          } else {
+            this.removeBg = true;
+          }
+        },
+        resetRatios() {
+          const circle = this.mode === 'framed_circle';
+          this.topRatio = circle ? 0.5 : 0.45;
+          this.shoulderRatio = circle ? 0.85 : 0.75;
+        },
+
+        onPick(event) {
+          const file = event.target.files && event.target.files[0];
+          if (file) this.loadFile(file);
+        },
+        onDrop(event) {
+          const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+          if (file) this.loadFile(file);
+        },
+        loadFile(file) {
+          if (!file.type || !file.type.startsWith('image/')) {
+            this.error = '请选择 JPG / PNG / WebP / BMP 图片';
+            return;
+          }
+          this.file = file;
+          this.error = '';
+          this.result = null;
+          this.outputUrl = '';
+          this.cutoutUrl = '';
+          this.sourceUrl = URL.createObjectURL(file);
+          const probe = new Image();
+          probe.onload = () => { this.sourceSize = { w: probe.naturalWidth, h: probe.naturalHeight }; };
+          probe.src = this.sourceUrl;
+          this.tab = 'source';
+        },
+
+        async run() {
+          if (!this.file) { this.error = '先上传一张老师照片'; return; }
+          if (this.target.width < 64 || this.target.height < 64) { this.error = '目标尺寸不能小于 64px'; return; }
+          this.loading = true;
+          this.error = '';
+          const form = new FormData();
+          form.append('file', this.file);
+          form.append('mode', this.mode);
+          form.append('target_width', this.target.width);
+          form.append('target_height', this.target.height);
+          if (this.mode !== 'full_body') {
+            form.append('top_ratio', this.topRatio);
+            form.append('shoulder_ratio', this.shoulderRatio);
+          }
+          form.append('remove_bg', this.mode === 'full_body' ? 'true' : (this.removeBg ? 'true' : 'false'));
+          if (this.mode === 'framed_circle') {
+            form.append('border_width', this.borderWidth);
+            form.append('border_color', this.borderColor);
+          }
+          try {
+            const response = await fetch('/api/v1/images/process', { method: 'POST', body: form });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.message || body.detail || '处理失败');
+            this.result = body;
+            const stamp = Date.now();
+            this.outputUrl = body.output.url + '?v=' + stamp;
+            this.cutoutUrl = body.cutout ? body.cutout.url + '?v=' + stamp : '';
+            this.tab = 'result';
+          } catch (err) {
+            this.error = err.message || String(err);
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        percent(value, total) {
+          return total > 0 ? (value / total * 100) + '%' : '0%';
+        },
+        faceStyle() {
+          const face = this.result && this.result.face;
+          if (!face || !this.sourceSize.w) return 'display:none';
+          return 'left:' + this.percent(face.x, this.sourceSize.w) +
+                 ';top:' + this.percent(face.y, this.sourceSize.h) +
+                 ';width:' + this.percent(face.w, this.sourceSize.w) +
+                 ';height:' + this.percent(face.h, this.sourceSize.h);
+        },
+        cropStyle() {
+          const crop = this.result && this.result.crop;
+          if (!crop || !this.sourceSize.w) return 'display:none';
+          return 'left:' + this.percent(crop.left, this.sourceSize.w) +
+                 ';top:' + this.percent(crop.top, this.sourceSize.h) +
+                 ';width:' + this.percent(crop.width, this.sourceSize.w) +
+                 ';height:' + this.percent(crop.height, this.sourceSize.h);
+        },
+      };
+    }
+  </script>
+</body>
+</html>

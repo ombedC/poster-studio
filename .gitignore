@@ -1,0 +1,47 @@
+# ===== 运行数据与用户素材（体积大 / 含第三方隐私，不入库）=====
+data/
+samples/
+老师照片/
+.tmp/
+tmp*/
+
+# ===== 虚拟环境 =====
+.venv/
+.venv-*/
+venv/
+pip-*/
+*.egg-info/
+
+# ===== Python 缓存与测试产物 =====
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest-*/
+pytest-of-*/
+torchinductor_*/
+
+# ===== 密钥与本地配置 =====
+.env
+.env.*
+!.env.example
+
+# ===== 字体（授权受限，不入库）=====
+static/Fonts/
+*.ttf
+*.otf
+
+# ===== 设计源文件与大产物（顶层）=====
+/*.ai
+/*.eps
+/*.svg
+/*.psd
+/*.pdf
+
+# ===== 日志 =====
+*.log
+
+# ===== 系统 / 编辑器 =====
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
