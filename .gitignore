@@ -45,3 +45,5 @@ static/Fonts/
 Thumbs.db
 .vscode/
 .idea/
+# ===== 给外部 LLM 看的文本合集（本地生成，不入库）=====
+/for-gemini/
